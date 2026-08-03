@@ -1,160 +1,18 @@
 /* =========================================
-   farly.me — Main Script
-   Canvas signals, parallax, 3D tilt, reveals
+   farly.me - Main Script
+   3D flight story, card depth, reveals
    ========================================= */
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/* ---- Hero Canvas: Signal Network ---- */
-const canvas = document.getElementById('heroCanvas');
-let ctx, width, height, nodes = [], animationId;
-
-function initCanvas() {
-  if (!canvas || prefersReducedMotion) return;
-  ctx = canvas.getContext('2d');
-  resizeCanvas();
-  createNodes();
-  animateCanvas();
-  window.addEventListener('resize', () => { resizeCanvas(); createNodes(); });
-}
-
-function resizeCanvas() {
-  const dpr = Math.min(window.devicePixelRatio, 2);
-  width = canvas.offsetWidth;
-  height = canvas.offsetHeight;
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-
-function createNodes() {
-  const count = width < 640 ? 30 : 70;
-  nodes = [];
-  for (let i = 0; i < count; i++) {
-    nodes.push({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      vx: (Math.random() - 0.5) * 0.4,
-      vy: (Math.random() - 0.5) * 0.4,
-      r: Math.random() * 2 + 1,
-      phase: Math.random() * Math.PI * 2,
-      color: pickColor(),
-      pulse: Math.random() < 0.15
-    });
+async function initFlightExperience() {
+  try {
+    const { initFlightStory } = await import('./flight-scene.js');
+    initFlightStory({ reducedMotion: prefersReducedMotion });
+  } catch (error) {
+    document.getElementById('hero')?.classList.add('scene-ready', 'scene-fallback');
+    console.error('Flight scene failed to initialize.', error);
   }
-}
-
-function pickColor() {
-  const r = Math.random();
-  if (r < 0.55) return 'rgba(0,229,255,';
-  if (r < 0.8) return 'rgba(163,230,53,';
-  return 'rgba(251,146,60,';
-}
-
-let scanAngle = 0;
-
-function animateCanvas() {
-  ctx.clearRect(0, 0, width, height);
-
-  // Draw faint perspective grid
-  drawGrid();
-
-  // Update & draw connections
-  for (let i = 0; i < nodes.length; i++) {
-    const a = nodes[i];
-    a.x += a.vx; a.y += a.vy;
-    if (a.x < 0 || a.x > width) a.vx *= -1;
-    if (a.y < 0 || a.y > height) a.vy *= -1;
-
-    for (let j = i + 1; j < nodes.length; j++) {
-      const b = nodes[j];
-      const dx = a.x - b.x, dy = a.y - b.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 140) {
-        const alpha = (1 - dist / 140) * 0.18;
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.strokeStyle = `rgba(0,229,255,${alpha})`;
-        ctx.lineWidth = 0.6;
-        ctx.stroke();
-      }
-    }
-  }
-
-  // Draw nodes
-  const t = performance.now() * 0.001;
-  nodes.forEach(n => {
-    const pulse = n.pulse ? 1 + Math.sin(t * 2 + n.phase) * 0.35 : 1;
-    const alpha = n.pulse ? 0.5 + Math.sin(t * 2 + n.phase) * 0.25 : 0.35;
-    const r = n.r * pulse;
-
-    ctx.beginPath();
-    ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = n.color + alpha + ')';
-    ctx.fill();
-
-    if (n.pulse) {
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, r * 4, 0, Math.PI * 2);
-      ctx.fillStyle = n.color + (alpha * 0.08) + ')';
-      ctx.fill();
-    }
-  });
-
-  // Radar sweep line
-  if (width >= 640) {
-    scanAngle += 0.008;
-    const cx = width * 0.7, cy = height * 0.5, len = Math.max(width, height) * 0.8;
-    const x2 = cx + Math.cos(scanAngle) * len;
-    const y2 = cy + Math.sin(scanAngle) * len;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(x2, y2);
-    ctx.strokeStyle = 'rgba(0,229,255,0.08)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    // Radar arc glow
-    ctx.beginPath();
-    ctx.arc(cx, cy, 80, scanAngle - 0.4, scanAngle + 0.05);
-    ctx.strokeStyle = 'rgba(0,229,255,0.06)';
-    ctx.lineWidth = 60;
-    ctx.stroke();
-  }
-
-  animationId = requestAnimationFrame(animateCanvas);
-}
-
-function drawGrid() {
-  const spacing = 60;
-  ctx.strokeStyle = 'rgba(0,229,255,0.025)';
-  ctx.lineWidth = 0.5;
-  for (let x = 0; x < width; x += spacing) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
-  }
-  for (let y = 0; y < height; y += spacing) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
-  }
-}
-
-/* ---- Mouse Parallax on Hero ---- */
-const heroContent = document.querySelector('.hero-content');
-let targetX = 0, targetY = 0, currentX = 0, currentY = 0;
-
-function initParallax() {
-  if (prefersReducedMotion || !heroContent) return;
-  document.addEventListener('mousemove', e => {
-    targetX = (e.clientX / window.innerWidth - 0.5) * -12;
-    targetY = (e.clientY / window.innerHeight - 0.5) * -8;
-  });
-  function updateParallax() {
-    currentX += (targetX - currentX) * 0.08;
-    currentY += (targetY - currentY) * 0.08;
-    heroContent.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
-    requestAnimationFrame(updateParallax);
-  }
-  updateParallax();
 }
 
 /* ---- Scroll Reveal ---- */
@@ -232,7 +90,7 @@ const githubData = {
     },
     {
       name: 'AeroEdu',
-      desc: '翼启 — 浏览器端无人机飞控可视化教学平台。真实四旋翼动力学 + 级联 PID + 中文自然语言场景生成。',
+      desc: '翼启：浏览器端无人机飞控可视化教学平台。真实四旋翼动力学 + 级联 PID + 中文自然语言场景生成。',
       lang: 'JavaScript',
       langColor: '#f1e05a',
       date: '2026-07-03',
@@ -243,7 +101,7 @@ const githubData = {
   ai: [
     {
       name: 'xiaoxiang',
-      desc: 'Q 版铅笔小像 — 上传真人照片，AI 生成彩铅特征移植头像的轻量网页工具。',
+      desc: 'Q 版铅笔小像：上传真人照片，AI 生成彩铅特征移植头像的轻量网页工具。',
       lang: 'TypeScript',
       langColor: '#3178c6',
       date: '2026-07-30',
@@ -252,7 +110,7 @@ const githubData = {
     },
     {
       name: 'roki-love-letter',
-      desc: '情书·Roki — 为 Rokid AI 眼镜打造的沉浸式《情书》卡牌智能体，支持 2–4 人对局、AI 对手、语音唤醒与触控板交互。',
+      desc: '情书·Roki：为 Rokid AI 眼镜打造的沉浸式《情书》卡牌智能体，支持 2-4 人对局、AI 对手、语音唤醒与触控板交互。',
       lang: 'Ink',
       langColor: '#f5f5f5',
       date: '2026-07-17',
@@ -260,21 +118,39 @@ const githubData = {
       bullets: ['480×380 眼镜优先交互设计', '完整 21 张牌规则引擎 + AI 宫廷对手', '语音唤醒 + 触控板 + 头控多模态输入', '一键打包 .aix 部署至灵珠平台']
     }
   ],
-  exp: [
+  infra: [
     {
-      name: 'point-game',
-      desc: 'Constellation Run — 星座连线浏览器小游戏。按真实星座顺序连接编号星点，从仙后座到射手座，把星图重新拼回心跳。',
+      name: 'farly-portfolio',
+      desc: 'farly.me 的源代码仓库，包含作品集内容、交互系统和响应式构建配置。',
       lang: 'HTML',
       langColor: '#e34c26',
-      date: '2026-07-03',
-      link: 'https://github.com/farlyfeifei/point-game',
-      bullets: ['单文件零依赖（55KB），浏览器双击即运行', 'Canvas 2D 全屏渲染 + DPR 自适应', '真实天文星座数据驱动关卡', '键盘/鼠标/触屏三套输入 + 防误触']
+      date: '2026-07-31',
+      link: 'https://github.com/farlyfeifei/farly-portfolio',
+      bullets: ['Vite 构建与 GitHub Pages 发布', 'Three.js 实时飞行叙事', '桌面与移动端响应式布局', '减弱动画与 WebGL 降级']
+    },
+    {
+      name: 'farlyfeifei.github.io',
+      desc: 'farly.me 的 GitHub Pages 发布仓库，用于托管经过构建验证的线上版本。',
+      lang: 'HTML',
+      langColor: '#e34c26',
+      date: '2026-07-31',
+      link: 'https://github.com/farlyfeifei/farlyfeifei.github.io',
+      bullets: ['自定义域名 farly.me', '静态资源版本化', 'GitHub Pages 托管']
     }
   ],
   forks: [
     {
+      name: 'point-game',
+      desc: 'Constellation Run：星座连线浏览器小游戏，当前仓库在 GitHub 上标记为 fork。',
+      lang: 'HTML',
+      langColor: '#e34c26',
+      date: '2026-07-03',
+      link: 'https://github.com/farlyfeifei/point-game',
+      fork: true
+    },
+    {
       name: 'ohmyzsh',
-      desc: 'Forked from ohmyzsh/ohmyzsh — 社区驱动的 zsh 配置框架。',
+      desc: 'Forked from ohmyzsh/ohmyzsh：社区驱动的 zsh 配置框架。',
       lang: 'Shell',
       langColor: '#89e051',
       date: '2026-07-19',
@@ -318,26 +194,22 @@ function renderGitHubCards() {
 
   const elFeatured = document.getElementById('ghFeatured');
   const elAI = document.getElementById('ghAI');
-  const elExp = document.getElementById('ghExp');
+  const elInfra = document.getElementById('ghInfra');
   const elForks = document.getElementById('ghForks');
 
   if (elFeatured) elFeatured.innerHTML = githubData.featured.map(makeCard).join('');
   if (elAI) elAI.innerHTML = githubData.ai.map(makeCard).join('');
-  if (elExp) elExp.innerHTML = githubData.exp.map(makeCard).join('');
+  if (elInfra) elInfra.innerHTML = githubData.infra.map(makeCard).join('');
   if (elForks) elForks.innerHTML = githubData.forks.map(makeCompact).join('');
 }
 
 /* ---- Init ---- */
 function init() {
-  initCanvas();
-  initParallax();
+  initFlightExperience();
   initReveal();
-  initCardTilt();
   initNav();
   renderGitHubCards();
-
-  // Re-init tilt after cards are rendered
-  setTimeout(() => initCardTilt(), 100);
+  initCardTilt();
 }
 
 if (document.readyState === 'loading') {
