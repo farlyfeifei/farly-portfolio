@@ -100,6 +100,15 @@ const githubData = {
   ],
   ai: [
     {
+      name: 'private-rag-agent',
+      desc: '本地私有多 Agent RAG：将复杂问题拆解为并行研究、事实核查与综合回答，文档处理和推理均可在本机完成。',
+      lang: 'Python',
+      langColor: '#3572A5',
+      date: '2026-08-06',
+      link: 'https://github.com/farlyfeifei/private-rag-agent',
+      bullets: ['PDF / Word / Markdown / Excel / PPT 多格式导入', '混合检索 + RRF 融合 + cross-encoder 重排', 'Decomposer / Researcher / Fact-Checker / Synthesizer 多 Agent 协作', '引用追溯与 groundedness 核查，支持 AMD / ROCm 本地推理']
+    },
+    {
       name: 'xiaoxiang',
       desc: 'Q 版铅笔小像：上传真人照片，AI 生成彩铅特征移植头像的轻量网页工具。',
       lang: 'TypeScript',
